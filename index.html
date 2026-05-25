@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataDetective — AI Chart Forensics Powered by Gemma 4</title>
+  <meta name="description" content="Upload any chart or graph and let Gemma 4 AI detect misleading data visualizations, extract data, and score chart integrity.">
+  <meta property="og:title" content="DataDetective — AI Chart Forensics">
+  <meta property="og:description" content="Catch misleading charts with AI-powered forensic analysis using Google's Gemma 4.">
+  <meta property="og:type" content="website">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Animated Background -->
+    <div class="bg-gradient"></div>
+
+    <!-- Header -->
+    <header class="header" id="header">
+      <div class="header-top">
+        <div class="logo">
+          <span class="logo-icon">🔍</span>
+          <h1>DataDetective</h1>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+          <span class="theme-icon" id="theme-icon">🌙</span>
+        </button>
+      </div>
+      <p class="tagline">AI-Powered Chart Forensics</p>
+      <p class="subtitle">Upload any chart or graph — Gemma 4 runs locally on your machine to analyze it for misleading techniques, extract data, and rate its integrity. Your data never leaves your device.</p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main" id="main-content">
+
+      <!-- Ollama Connection Section -->
+      <section class="backend-section" id="backend-section">
+        <div class="glass-card backend-card">
+          <div class="ollama-status" id="ollama-status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Checking Ollama...</span>
+          </div>
+          <div class="model-selector">
+            <label for="model-select">Model</label>
+            <select id="model-select">
+              <option value="">Detecting models...</option>
+            </select>
+          </div>
+          <p class="mode-hint">
+            Run <code>ollama pull gemma4:26b</code> to download Gemma 4 locally.
+            <a href="https://ollama.com/library/gemma4" target="_blank" rel="noopener noreferrer">Learn more →</a>
+          </p>
+        </div>
+      </section>
+
+      <!-- Upload Section -->
+      <section class="upload-section" id="upload-section">
+        <div class="upload-zone" id="upload-zone">
+          <!-- Default Upload State -->
+          <div class="upload-content" id="upload-content">
+            <div class="upload-icon">📊</div>
+            <h2>Drop a chart image here</h2>
+            <p>or click to browse · PNG, JPG, WEBP supported</p>
+          </div>
+
+          <!-- Preview State -->
+          <div class="preview-container hidden" id="preview-container">
+            <img id="preview-image" alt="Uploaded chart preview">
+            <div class="preview-actions">
+              <button class="btn-primary" id="analyze-btn">
+                🔍 Analyze Chart
+              </button>
+              <button class="btn-secondary" id="clear-btn">
+                ✕ Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Hidden File Input -->
+          <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+        </div>
+      </section>
+
+      <!-- Sample Charts -->
+      <section class="samples-section" id="samples-section">
+        <h3>Or try a sample misleading chart</h3>
+        <div class="samples-grid" id="samples-grid">
+          <button class="sample-btn" data-sample="truncated">
+            <span class="sample-emoji">📉</span>
+            Truncated Y-Axis
+          </button>
+          <button class="sample-btn" data-sample="cherry-picked">
+            <span class="sample-emoji">🍒</span>
+            Cherry-Picked Data
+          </button>
+          <button class="sample-btn" data-sample="misleading-pie">
+            <span class="sample-emoji">🥧</span>
+            Misleading Pie Chart
+          </button>
+        </div>
+      </section>
+
+      <!-- Loading State -->
+      <section class="loading-section hidden" id="loading-section">
+        <div class="glass-card loading-card">
+          <div class="spinner"></div>
+          <h3>Investigating chart...</h3>
+          <p>Gemma 4 is performing forensic analysis</p>
+          <div class="loading-steps">
+            <div class="loading-step active" id="step-read">
+              <span class="loading-step-icon">📷</span>
+              <span>Reading visual elements...</span>
+            </div>
+            <div class="loading-step" id="step-analyze">
+              <span class="loading-step-icon">🧠</span>
+              <span>Analyzing data integrity...</span>
+            </div>
+            <div class="loading-step" id="step-detect">
+              <span class="loading-step-icon">🚩</span>
+              <span>Detecting manipulation techniques...</span>
+            </div>
+            <div class="loading-step" id="step-report">
+              <span class="loading-step-icon">📝</span>
+              <span>Generating forensic report...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Error State -->
+      <section class="error-section hidden" id="error-section">
+        <div class="glass-card error-card">
+          <div class="error-icon">⚠️</div>
+          <h3>Analysis Failed</h3>
+          <p id="error-message">Something went wrong. Please check your API key and try again.</p>
+          <button class="btn-secondary" id="retry-btn" style="margin-top: 1rem;">
+            ↻ Try Again
+          </button>
+        </div>
+      </section>
+
+      <!-- Results Section -->
+      <section class="results-section hidden" id="results-section">
+
+        <!-- Trust Score -->
+        <div class="glass-card trust-score-card" id="trust-score-card">
+          <div class="card-header">
+            <span class="card-icon">🎯</span>
+            <h3>Trust Score</h3>
+          </div>
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 120 120">
+              <circle class="gauge-bg" cx="60" cy="60" r="52"></circle>
+              <circle class="gauge-fill" id="gauge-fill" cx="60" cy="60" r="52"
+                stroke-dasharray="326.73"
+                stroke-dashoffset="326.73"></circle>
+            </svg>
+            <div class="gauge-score">
+              <span class="gauge-number" id="gauge-number">0</span>
+              <span class="gauge-label">out of 100</span>
+            </div>
+          </div>
+          <p class="verdict-text" id="verdict-text"></p>
+        </div>
+
+        <!-- Chart Info -->
+        <div class="glass-card chart-info-card" id="chart-info-card">
+          <div class="card-header">
+            <span class="card-icon">📊</span>
+            <h3>Chart Analysis</h3>
+          </div>
+          <span class="chart-type-badge" id="chart-type-badge"></span>
+          <p class="chart-description" id="chart-description"></p>
+        </div>
+
+        <!-- Positives -->
+        <div class="glass-card positives-card" id="positives-card">
+          <div class="card-header">
+            <span class="card-icon">✅</span>
+            <h3>What's Done Well</h3>
+          </div>
+          <div class="positives-list" id="positives-list"></div>
+        </div>
+
+        <!-- Red Flags -->
+        <div class="glass-card red-flags-card" id="red-flags-card">
+          <div class="card-header">
+            <span class="card-icon">🚩</span>
+            <h3>Red Flags Detected</h3>
+          </div>
+          <div class="red-flags-list" id="red-flags-list"></div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="glass-card data-card" id="data-card">
+          <div class="card-header">
+            <span class="card-icon">📋</span>
+            <h3>Extracted Data</h3>
+          </div>
+          <table class="data-table" id="data-table">
+            <thead><tr><th>Label</th><th>Value</th></tr></thead>
+            <tbody id="data-table-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Suggestions -->
+        <div class="glass-card suggestions-card" id="suggestions-card">
+          <div class="card-header">
+            <span class="card-icon">💡</span>
+            <h3>Improvement Suggestions</h3>
+          </div>
+          <div class="suggestions-list" id="suggestions-list"></div>
+        </div>
+
+        <!-- AI Thinking Process -->
+        <div class="glass-card thinking-card" id="thinking-card">
+          <div class="card-header">
+            <span class="card-icon">🧠</span>
+            <h3>Gemma 4 Reasoning</h3>
+          </div>
+          <button class="thinking-toggle" id="thinking-toggle">
+            <span class="toggle-arrow">▶</span>
+            <span>Show AI thinking process</span>
+          </button>
+          <div class="thinking-content" id="thinking-content"></div>
+        </div>
+
+        <!-- Analyze Another -->
+        <div style="grid-column: 1 / -1; text-align: center; padding: 1rem 0;">
+          <button class="btn-primary" id="analyze-another-btn">
+            📊 Analyze Another Chart
+          </button>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="powered-by">
+        <span>Powered by</span>
+        <span class="gemma-badge">✦ Gemma 4 · Local AI</span>
+      </div>
+      <p>Built for the <a href="https://dev.to/challenges/google-gemma-2026-05-06" target="_blank" rel="noopener noreferrer">DEV.to Gemma 4 Challenge</a></p>
+    </footer>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
