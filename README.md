@@ -27,11 +27,11 @@ brew install ollama
 
 ### 2. Download Gemma 4
 ```bash
-# Recommended: 26B MoE (only 3.8B active params — fast + smart)
-ollama pull gemma4:26b
-
-# Or smaller: 4B for lighter hardware
+# Laptop-friendly default (~9.6 GB) — what this app was built and tuned against
 ollama pull gemma4:e4b
+
+# Stronger, if you have the RAM: 26B MoE (only ~3.8B active params per pass)
+ollama pull gemma4:26b
 ```
 
 ### 3. Start Ollama
@@ -68,8 +68,8 @@ Gemma 4 runs **locally on your machine via Ollama**. The app auto-detects Ollama
 ### Multimodal Vision
 Charts are sent as images to Gemma 4's native multimodal model, which understands visual elements like axes, labels, proportions, and data points directly from the image.
 
-### Structured JSON Output
-The system prompt instructs Gemma 4 to return analysis as structured JSON, enabling clean parsing and rich UI rendering of results including trust scores, red flags with severity levels, extracted data, and improvement suggestions.
+### Reason-First, Then Structured JSON
+Rather than forcing `format: 'json'` (which makes the model commit to an answer with no room to think), the system prompt has Gemma 4 **reason step by step in plain text first** — axis baseline, pie totals, time window, language — and then emit the final answer inside a ```json fence. The app parses the JSON out of the tail and **displays the reasoning** in a collapsible panel. This markedly improves detection of subtle issues like truncated axes and impossible pie totals. See the blog post for the before/after.
 
 ### Why Gemma 4?
 - **Open weights** — Runs locally, no vendor lock-in, Apache 2.0 license
@@ -85,7 +85,9 @@ gemma-challenge/
 ├── css/
 │   └── style.css       # Design system with glassmorphism
 ├── js/
-│   └── app.js          # Core logic, Ollama + Cloud API integration
+│   └── app.js          # Core logic, Ollama integration, reason-first analysis
+├── generate_test_charts.py  # Regenerates the test-chart set (Pillow)
+├── test-charts/        # 3 misleading + 1 honest chart, verified against e4b
 ├── README.md           # This file
 └── LICENSE             # MIT License
 ```

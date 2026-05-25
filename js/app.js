@@ -35,7 +35,14 @@ Common misleading techniques to look for:
 
 Be fair and balanced. Good charts should score high. Only flag real issues.
 
-IMPORTANT: Respond ONLY with a valid JSON object in exactly this format (no markdown, no code fences):
+ANALYSIS PROCEDURE — work through these steps IN PLAIN TEXT before producing any JSON. Thinking out loud first dramatically improves accuracy:
+Step 1 — Axis baseline: State the value axis minimum. For a bar/column chart, does it start at zero? If NOT, the visual heights exaggerate the real differences — this is a HIGH-severity "Truncated Y-axis" issue and trustScore should be 45 or below.
+Step 2 — Pie/donut totals: Add up every slice percentage and write the sum. If it is not ~100%, that is a HIGH-severity issue and trustScore should be 40 or below.
+Step 3 — Time window: If a trend shows only a short or hand-picked range, note a "Cherry-picked range" issue.
+Step 4 — Context: Check captions/language for hype, and whether units and a data source are labeled.
+Step 5 — Score: A chart that passes every check (zero baseline, full context, neutral language, labeled units and source) earns 85-100. Subtract for each real issue found above.
+
+After your step-by-step reasoning, output the final answer as a single JSON object inside a \`\`\`json code fence, in exactly this format:
 {
   "chartType": "string - type of chart (bar, line, pie, scatter, area, histogram, infographic, etc.)",
   "title": "string - chart title if visible, or brief inferred topic",
@@ -56,7 +63,7 @@ IMPORTANT: Respond ONLY with a valid JSON object in exactly this format (no mark
   "verdict": "string - 2-3 sentence final assessment of the chart's overall honesty and effectiveness"
 }`;
 
-const USER_PROMPT = 'Analyze this chart image. Perform a thorough forensic analysis checking for any misleading visualization techniques. Extract approximate data values, rate the chart\'s integrity, and provide improvement suggestions. Respond with the JSON format specified in your instructions.';
+const USER_PROMPT = 'Analyze this chart image. Reason step by step through the analysis procedure (axis baseline, pie totals, time window, context, score), then provide the final JSON object inside a ```json code fence as specified in your instructions.';
 
 // ============================================
 // State
@@ -471,9 +478,11 @@ async function callOllamaAPI() {
       { role: 'user', content: USER_PROMPT, images: [state.imageBase64] }
     ],
     stream: false,
-    format: 'json',
+    // NOTE: we intentionally do NOT set format:'json'. Letting Gemma 4 reason in
+    // plain text first (then emit JSON in a fenced block) markedly improves
+    // detection of subtle issues like truncated axes and bad pie totals.
     options: {
-      temperature: 0.4,
+      temperature: 0.3,
       num_predict: 4096,
     }
   };
@@ -495,12 +504,25 @@ async function callOllamaAPI() {
   }
 
   const data = await response.json();
-  const rawContent = data?.message?.content || '';
+  const rawContent = (data?.message?.content || '').trim();
 
-  // Parse JSON
-  let jsonStr = rawContent.trim();
-  const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) jsonStr = fenceMatch[1].trim();
+  // The model reasons in plain text, then emits the answer in a ```json fence.
+  // Capture the reasoning (everything before the fence) for the transparency panel,
+  // then extract and parse the JSON.
+  let jsonStr = rawContent;
+  let reasoning = '';
+  const fenceMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    jsonStr = fenceMatch[1].trim();
+    reasoning = rawContent.slice(0, fenceMatch.index).trim();
+  } else {
+    // Fallback: grab the last {...} block if the model skipped the fence
+    const objMatch = rawContent.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      jsonStr = objMatch[0];
+      reasoning = rawContent.slice(0, objMatch.index).trim();
+    }
+  }
 
   let analysis;
   try {
@@ -509,6 +531,7 @@ async function callOllamaAPI() {
     console.error('Failed to parse JSON:', rawContent);
     throw new Error('Gemma 4 returned an unexpected response format. Please try again.');
   }
+  analysis._reasoning = reasoning;
   return analysis;
 }
 
@@ -524,8 +547,7 @@ function showResults(analysis) {
   renderRedFlags(analysis.redFlags);
   renderDataTable(analysis.dataExtracted);
   renderSuggestions(analysis.suggestions);
-  // Hide thinking card since Ollama doesn't expose thinking parts
-  $('thinking-card').classList.add('hidden');
+  renderReasoning(analysis._reasoning);
   setTimeout(() => els.resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
 }
 
@@ -602,6 +624,13 @@ function renderSuggestions(list) {
   els.suggestionsList.innerHTML = list.map(s =>
     `<div class="suggestion-item"><span class="suggestion-icon">💡</span><span>${esc(s)}</span></div>`
   ).join('');
+}
+
+function renderReasoning(text) {
+  const card = $('thinking-card');
+  if (!text) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  els.thinkingContent.textContent = text;
 }
 
 function toggleThinking() {
